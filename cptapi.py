@@ -134,14 +134,34 @@ class Cptapi:
             ipv6 = ipaddress.IPv6Address(str(oip.network_address))
             return str(NETWORK_NAME_PREFFIX+str(ipv6)+'_'+mask_length)
 
-    def get_object_color(self,fip):
-        ip=ipaddress.ip_address(str(fip))
+    def get_object_color(self, fip):
+        # Normalize input
+        if isinstance(fip, str):
+            try:
+                # Try parsing as an IP address
+                fip = ipaddress.ip_address(fip)
+            except ValueError:
+                try:
+                    # Try parsing as a network
+                    fip = ipaddress.ip_network(fip, strict=False)
+                except ValueError:
+                    raise ValueError(f"Invalid IP or network string: {fip}")
+
+        if isinstance(fip, (ipaddress.IPv4Network, ipaddress.IPv6Network)):
+            ip = fip.network_address
+        elif isinstance(fip, (ipaddress.IPv4Address, ipaddress.IPv6Address)):
+            ip = fip
+        else:
+            raise TypeError(f"Unsupported type for fip: {type(fip)}")
+
+        # Apply coloring rules
         if any(ip in net for net in self.PRIVATE_NETWORKS):
             return self.COLOR_INTERNAL
         elif any(ip in net for net in self.DMZ_NETWORKS):
             return self.COLOR_DMZ
         else:
             return self.COLOR_EXTERNAL
+
 
     def add_host(self,name=False,ipv4_address=False,ip_address=False,ipv6_address=False,comments=False,tags=False,color=False,ignore_warnings=False):
         command='add-host'
