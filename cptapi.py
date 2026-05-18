@@ -107,7 +107,7 @@ class Cptapi:
     def get_host_name(self,ip_address):
         oip = ipaddress.ip_address(str(ip_address))
         if str(oip.version) == '4':
-            ip=re.search('([0-9]*)\.([0-9]*)\.([0-9]*)\.([0-9]*)',ip_address)
+            ip=re.search(r'([0-9]*)\.([0-9]*)\.([0-9]*)\.([0-9]*)',ip_address)
             if ip:
                 found1 = ip.group(1).zfill(3)
                 found2 = ip.group(2).zfill(3)
@@ -122,7 +122,7 @@ class Cptapi:
     def get_network_name(self,subnet='',mask_length=''):
         oip = ipaddress.ip_network(str(subnet+'/'+mask_length),strict=False)
         if str(oip.version) == '4':
-            ip=re.search('([0-9]*)\.([0-9]*)\.([0-9]*)\.([0-9]*)',str(oip.network_address))
+            ip=re.search(r'([0-9]*)\.([0-9]*)\.([0-9]*)\.([0-9]*)',str(oip.network_address))
             if ip:
                 found1 = ip.group(1).zfill(3)
                 found2 = ip.group(2).zfill(3)
