@@ -196,6 +196,23 @@ class Cptapi:
         else:
             return request_result
 
+    def add_identity_tag(self,name=False,external_identifier=False,color=False):
+        command='add-identity-tag'
+        request_data={}
+        request_data['name']=name
+        request_data['external-identifier']=external_identifier
+        if color:
+            request_data['color']=color
+        request_result = self.api_call(self.url, command, request_data ,self.sid)
+        if "code" in request_result and request_result["code"] == "err_validation_failed" and self.verbose:
+            print(json.dumps(request_result))
+        elif "code" in request_result and request_result["code"] == "generic_error" and self.verbose:
+            print(json.dumps(request_result))
+        else:   
+            if self.verbose:
+                print(json.dumps(request_result))
+            return request_result
+
     def reassign_all(self):
         if self.verbose:
             print("Reassign domains")
