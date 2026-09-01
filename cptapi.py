@@ -5,11 +5,11 @@ import urllib3
 import json
 import time
 from requests.adapters import HTTPAdapter
-from requests.packages.urllib3.util.retry import Retry
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+from urllib3.util import Retry
 from typing import Dict, Any, Optional
 import ipaddress
 import re
-requests.packages.urllib3.disable_warnings()
 
 API_WAIT_TIME=.5
 PAGE_SIZE=10
@@ -45,6 +45,12 @@ class Cptapi:
         self.sid = self.login(user,password,url,domain,read_only=read_only)
         self.publish_wait_time=publish_wait_time
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.logout()
+
     def login(self,user,password,url,domain=False,read_only=True,session_comments="Session Comments",session_description="Session Description"):
         payload = {'user':user, 'password' : password, 'session-comments' : session_comments, 'session-description': session_description}
         if domain:
@@ -60,16 +66,33 @@ class Cptapi:
             message="Login failure. Check username and password. If you are using a demo firewall check if it is still valid."+json.dumps(response)
             quit(message)
 
-    def api_call(self,ap_addr, command, payload, sid):
+#    def api_call(self,ap_addr, command, payload, sid):
+#        url = 'https://' + ap_addr + '/web_api/' + command
+#        if sid == '':
+#            request_headers = {'Content-Type' : 'application/json'}
+#        else:
+#            request_headers = {'Content-Type' : 'application/json', 'X-chkp-sid' : sid}
+#        r = self.requests_retry_session().post(url,data=json.dumps(payload), headers=request_headers,verify=False)
+#        time.sleep(self.api_wait_time)
+#        #print('api_call command:{}\npayload:{}\nkeys:{}\nrequest:{}\n\n'.format(command,payload,list(r.json().keys()),r.json()))
+#        return r.json()
+
+    def api_call(self, ap_addr, command, payload, sid):
         url = 'https://' + ap_addr + '/web_api/' + command
-        if sid == '':
-            request_headers = {'Content-Type' : 'application/json'}
-        else:
-            request_headers = {'Content-Type' : 'application/json', 'X-chkp-sid' : sid}
-        r = self.requests_retry_session().post(url,data=json.dumps(payload), headers=request_headers,verify=False)
-        time.sleep(self.api_wait_time)
-        #print('api_call command:{}\npayload:{}\nkeys:{}\nrequest:{}\n\n'.format(command,payload,list(r.json().keys()),r.json()))
-        return r.json()
+        headers = {'Content-Type': 'application/json'}
+        if sid:
+            headers['X-chkp-sid'] = sid
+
+        try:
+            r = self.requests_retry_session().post(
+                url, data=json.dumps(payload), headers=headers, verify=False
+            )
+            time.sleep(self.api_wait_time)
+            return r.json()
+        except Exception as e:
+            if self.verbose:
+                print(f"[!] API call '{command}' failed: {e}")
+            return {"code": "http_error", "message": str(e)}
 
     def objects_api_call(self, command, payload, identifications=['objects']):
         payload['limit']=self.page_size
@@ -540,6 +563,21 @@ class Cptapi:
         request_data={}
         result=self.objects_api_call(command,request_data,identifications=['packages'])
         return result['packages']
+
+    def show_package(self, name, show_installation_targets=True):
+        """Retrieves details for a specific policy package."""
+        command = 'show-package'
+        payload = {
+            'name': name,
+            'show-installation-targets': show_installation_targets
+        }
+        return self.api_call(self.url, command, payload, self.sid)
+
+    def show_gateways_and_servers(self):
+        """Retrieves all gateway and server objects with automatic pagination."""
+        command = 'show-gateways-and-servers'
+        result = self.objects_api_call(command, {}, identifications=['objects'])
+        return result.get('objects', [])
 
     def show_threat_protection(self,uid=False,show_profiles=False):
         command='show-threat-protection'
